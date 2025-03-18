@@ -1,14 +1,11 @@
-select nome, max(votos) as votos from (
+select nome, designacao, votos
+from (
 
-select distritos.nome as nome, votacoes.partido as partido, sum(votacoes.votos) as votos
-from distritos, concelhos, freguesias, votacoes
-where distritos.codigo = concelhos.distrito and concelhos.codigo = freguesias.concelho and freguesias.codigo = votacoes.freguesia
-group by distritos.nome, votacoes.partido
-order by votos desc
+select distritos.nome, partidos.designacao, SUM(votacoes.votos) AS votos, MAX(SUM(votacoes.votos)) OVER (PARTITION BY distritos.nome) AS max_votos
+from distritos, concelhos, freguesias, votacoes, partidos
+where distritos.codigo = concelhos.distrito and concelhos.codigo = freguesias.concelho and freguesias.codigo = votacoes.freguesia and votacoes.partido = partidos.sigla
+group by distritos.nome, partidos.designacao
 
 )
-group by nome
+where votos = max_votos
 order by votos desc
-
-
--- not finished, need to add partido to the select
