@@ -1,3 +1,6 @@
+
+
+
 select concelhos.codigo, votacoes.partido
 from distritos, concelhos, freguesias, votacoes
 where distritos.nome = 'Porto' and distritos.codigo = concelhos.distrito and concelhos.codigo = freguesias.concelho and freguesias.codigo = votacoes.freguesia
