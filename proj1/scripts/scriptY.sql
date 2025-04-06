@@ -1,5 +1,5 @@
 CREATE TABLE ydistritos AS SELECT * FROM GTD7.distritos;
-CREATE TABLE yconcelhos AS SELECT * FROM GTD7.conselhos;
+CREATE TABLE yconcelhos AS SELECT * FROM GTD7.concelhos;
 CREATE TABLE yfreguesias AS SELECT * FROM GTD7.freguesias;
 CREATE TABLE ypartidos AS SELECT * FROM GTD7.partidos;
 CREATE TABLE yvotacoes AS SELECT * FROM GTD7.votacoes;
