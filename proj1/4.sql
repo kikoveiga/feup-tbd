@@ -1,66 +1,131 @@
-select concelhos.codigo, votacoes.partido
-from distritos, concelhos, freguesias, votacoes
-where distritos.nome = 'Porto' and distritos.codigo = concelhos.distrito and concelhos.codigo = freguesias.concelho and freguesias.codigo = votacoes.freguesia
-and votacoes.votos = (
-    select max(votacoes.votos)
-    from votacoes
-    where votacoes.freguesia = freguesias.codigo
-)
-group by concelhos.codigo, votacoes.partido
-having count(distinct freguesias.codigo) = (
-    select count(*)
-    from freguesias
-    where freguesias.concelho = concelhos.codigo
-)
-order by concelhos.codigo, votacoes.partido
-    
--- Ambiente X
-select xconcelhos.codigo, xvotacoes.partido
-from xdistritos, xconcelhos, xfreguesias, xvotacoes
-where xdistritos.nome = 'Porto' and xdistritos.codigo = xconcelhos.distrito and xconcelhos.codigo = xfreguesias.concelho and xfreguesias.codigo = xvotacoes.freguesia
-and xvotacoes.votos = (
-    select max(xvotacoes.votos)
-    from xvotacoes
-    where xvotacoes.freguesia = xfreguesias.codigo
-)
-group by xconcelhos.codigo, xvotacoes.partido
-having count(distinct xfreguesias.codigo) = (
-    select count(*)
-    from xfreguesias
-    where xfreguesias.concelho = xconcelhos.codigo
-)
-order by xconcelhos.codigo, xvotacoes.partido
+-- double negation, no view
+SELECT c.codigo, p.sigla
+FROM zconcelhos c
+JOIN zdistritos d ON d.codigo = c.distrito
+JOIN zpartidos p ON 1 = 1
+WHERE d.nome = 'Porto'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM zfreguesias f
+    WHERE f.concelho = c.codigo
+      AND NOT EXISTS (
+        SELECT 1
+        FROM zvotacoes v
+        WHERE v.freguesia = f.codigo
+          AND v.partido = p.sigla
+          AND v.votos = (
+            SELECT MAX(v2.votos)
+            FROM zvotacoes v2
+            WHERE v2.freguesia = f.codigo
+          )
+      )
+  );
 
--- Ambiente Y
-select yconcelhos.codigo, yvotacoes.partido
-from ydistritos, yconcelhos, yfreguesias, yvotacoes
-where ydistritos.nome = 'Porto' and ydistritos.codigo = yconcelhos.distrito and yconcelhos.codigo = yfreguesias.concelho and yfreguesias.codigo = yvotacoes.freguesia
-and yvotacoes.votos = (
-    select max(yvotacoes.votos)
-    from yvotacoes
-    where yvotacoes.freguesia = yfreguesias.codigo
+-- count, no view
+SELECT c.codigo, v.partido
+FROM zdistritos d
+JOIN zconcelhos c ON d.codigo = c.distrito
+JOIN zfreguesias f ON c.codigo = f.concelho
+JOIN zvotacoes v ON f.codigo = v.freguesia
+WHERE d.nome = 'Porto'
+  AND v.votos = (
+    SELECT MAX(v2.votos)
+    FROM zvotacoes v2
+    WHERE v2.freguesia = f.codigo
+  )
+GROUP BY c.codigo, v.partido
+HAVING COUNT(DISTINCT f.codigo) = (
+  SELECT COUNT(*)
+  FROM zfreguesias f2
+  WHERE f2.concelho = c.codigo
 )
-group by yconcelhos.codigo, yvotacoes.partido
-having count(distinct yfreguesias.codigo) = (
-    select count(*)
-    from yfreguesias
-    where yfreguesias.concelho = yconcelhos.codigo
-)
-order by yconcelhos.codigo, yvotacoes.partido
+ORDER BY c.codigo, v.partido;
 
--- Ambiente Z
-select zconcelhos.codigo, zvotacoes.partido
-from zdistritos, zconcelhos, zfreguesias, zvotacoes
-where zdistritos.nome = 'Porto' and zdistritos.codigo = zconcelhos.distrito and zconcelhos.codigo = zfreguesias.concelho and zfreguesias.codigo = zvotacoes.freguesia
-and zvotacoes.votos = (
-    select max(zvotacoes.votos)
-    from zvotacoes
-    where zvotacoes.freguesia = zfreguesias.codigo
+-- create view
+CREATE OR REPLACE VIEW vw_vencedores_freguesia AS
+SELECT v.freguesia, v.partido
+FROM zvotacoes v
+WHERE v.votos = (
+  SELECT MAX(v2.votos)
+  FROM zvotacoes v2
+  WHERE v2.freguesia = v.freguesia
+);
+
+-- double negation, with view
+SELECT c.codigo, p.sigla
+FROM zconcelhos c
+JOIN zdistritos d ON d.codigo = c.distrito
+JOIN zpartidos p ON 1 = 1
+WHERE d.nome = 'Porto'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM zfreguesias f
+    WHERE f.concelho = c.codigo
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vw_vencedores_freguesia vw
+        WHERE vw.freguesia = f.codigo
+          AND vw.partido = p.sigla
+      )
+  );
+
+-- count, with view
+SELECT c.codigo, vw.partido
+FROM zdistritos d
+JOIN zconcelhos c ON d.codigo = c.distrito
+JOIN zfreguesias f ON c.codigo = f.concelho
+JOIN vw_vencedores_freguesia vw ON f.codigo = vw.freguesia
+WHERE d.nome = 'Porto'
+GROUP BY c.codigo, vw.partido
+HAVING COUNT(DISTINCT f.codigo) = (
+  SELECT COUNT(*)
+  FROM zfreguesias f2
+  WHERE f2.concelho = c.codigo
 )
-group by zconcelhos.codigo, zvotacoes.partido
-having count(distinct zfreguesias.codigo) = (
-    select count(*)
-    from zfreguesias
-    where zfreguesias.concelho = zconcelhos.codigo
+ORDER BY c.codigo, vw.partido;
+
+-- create materialized view
+CREATE MATERIALIZED VIEW mv_vencedores_freguesia
+BUILD IMMEDIATE
+REFRESH ON DEMAND
+AS
+SELECT v.freguesia, v.partido
+FROM zvotacoes v
+WHERE v.votos = (
+  SELECT MAX(v2.votos)
+  FROM zvotacoes v2
+  WHERE v2.freguesia = v.freguesia
+);
+
+-- double negation, with materialized view
+SELECT c.codigo, p.sigla
+FROM zconcelhos c
+JOIN zdistritos d ON d.codigo = c.distrito
+JOIN zpartidos p ON 1 = 1
+WHERE d.nome = 'Porto'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM zfreguesias f
+    WHERE f.concelho = c.codigo
+      AND NOT EXISTS (
+        SELECT 1
+        FROM mv_vencedores_freguesia mv
+        WHERE mv.freguesia = f.codigo
+          AND mv.partido = p.sigla
+      )
+  );
+
+-- count, with materialized view
+SELECT c.codigo, mv.partido
+FROM zdistritos d
+JOIN zconcelhos c ON d.codigo = c.distrito
+JOIN zfreguesias f ON c.codigo = f.concelho
+JOIN mv_vencedores_freguesia mv ON f.codigo = mv.freguesia
+WHERE d.nome = 'Porto'
+GROUP BY c.codigo, mv.partido
+HAVING COUNT(DISTINCT f.codigo) = (
+  SELECT COUNT(*)
+  FROM zfreguesias f2
+  WHERE f2.concelho = c.codigo
 )
-order by zconcelhos.codigo, zvotacoes.partido
+ORDER BY c.codigo, mv.partido;
