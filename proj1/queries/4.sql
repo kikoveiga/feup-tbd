@@ -51,6 +51,9 @@ WHERE v.votos = (
   WHERE v2.freguesia = v.freguesia
 );
 
+-- drop view
+DROP VIEW vw_vencedores_freguesia;
+
 -- double negation, with view
 SELECT c.codigo, p.sigla
 FROM zconcelhos c
