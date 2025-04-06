@@ -8,10 +8,14 @@ order by votos desc
 CREATE INDEX idx_zconcelhos_distrito ON zconcelhos(distrito);
 CREATE INDEX idx_zvotacoes_partido ON zvotacoes(partido);
 
+-- drop b-tree indexes
+DROP INDEX idx_zconcelhos_distrito;
+DROP INDEX idx_zvotacoes_partido;
+
 -- bitmap indexes
 CREATE BITMAP INDEX bm_zconcelhos_distrito ON zconcelhos(distrito);
 CREATE BITMAP INDEX bm_zvotacoes_partido ON zvotacoes(partido);
 
--- drop indexes
-DROP INDEX idx_zconcelhos_distrito;
-DROP INDEX idx_zvotacoes_partido;
+-- drop bitmap indexes
+DROP INDEX bm_zconcelhos_distrito;
+DROP INDEX bm_zvotacoes_partido;
