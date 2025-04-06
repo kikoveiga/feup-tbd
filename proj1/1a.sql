@@ -1,7 +1,3 @@
-/* select codigo, nome
-from freguesias
-where freguesias.concelho = 1103 */
-
 select codigo, nome
 from freguesias
 where freguesias.concelho = 1103
