@@ -14,6 +14,7 @@ CREATE TYPE Party_T AS OBJECT (
 
 -- Forward declaration
 CREATE TYPE Heading_T;
+/
 CREATE TYPE Heading_RefList_T AS TABLE OF REF Heading_T;
 /
 
@@ -36,9 +37,8 @@ CREATE TYPE BudgetEntry_T AS OBJECT (
 /
 
 CREATE TYPE Expense_T UNDER BudgetEntry_T;
-/  
-CREATE TYPE Revenue_T UNDER BudgetEntry_T;
 /
+CREATE TYPE Revenue_T UNDER BudgetEntry_T;
 
 CREATE TYPE BudgetList_T   AS TABLE OF BudgetEntry_T;
 /  
