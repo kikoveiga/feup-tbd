@@ -1,112 +1,60 @@
--- Drop tables first (in reverse dependency order)
+-- === DROP TABLES (reverse dependency order) ===
 BEGIN
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE Leaderships'; EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE ARevenues';   EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE AExpenses';   EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE Periods';     EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE GeoEntities'; EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE Headings';    EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN EXECUTE IMMEDIATE 'DROP TABLE Parties';     EXCEPTION WHEN OTHERS THEN NULL; END;
+  FOR tbl IN (
+    SELECT table_name FROM user_tables
+    WHERE table_name IN (
+      'MUNICIPALITIES',
+      'GEO_ENTITIES',
+      'HEADINGS',
+      'PARTIES'
+    )
+  ) LOOP
+    BEGIN
+      EXECUTE IMMEDIATE 'DROP TABLE ' || tbl.table_name || ' CASCADE CONSTRAINTS';
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
+  END LOOP;
 END;
 /
-
--- Turn on output buffering to see messages (in SQL*Plus or SQL Developer):
 SET SERVEROUTPUT ON;
 
--- Drop ARevenue_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE ARevenue_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type ARevenue_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type ARevenue_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop ARevenue_T: ' || SQLERRM);
-        END IF;
-END;
-/
 
--- Drop AExpense_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE AExpense_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type AExpense_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type AExpense_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop AExpense_T: ' || SQLERRM);
-        END IF;
-END;
-/
+-- === DROP TYPES (reverse dependency order) ===
 
--- Drop AnnualRecord_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE AnnualRecord_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type AnnualRecord_T.');
-EXCEPTION
+DECLARE
+  PROCEDURE try_drop(p_name VARCHAR2) IS
+  BEGIN
+    EXECUTE IMMEDIATE 'DROP TYPE ' || p_name || ' FORCE';
+    DBMS_OUTPUT.PUT_LINE('Dropped type ' || p_name);
+  EXCEPTION
     WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type AnnualRecord_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop AnnualRecord_T: ' || SQLERRM);
-        END IF;
-END;
-/
+      IF SQLCODE = -4043 THEN
+        DBMS_OUTPUT.PUT_LINE('Type ' || p_name || ' does not exist (skipped).');
+      ELSE
+        DBMS_OUTPUT.PUT_LINE('Failed to drop ' || p_name || ': ' || SQLERRM);
+      END IF;
+  END;
+BEGIN
+  -- leaf collection types
+  try_drop('HEADING_REFLIST_T');
+  try_drop('BUDGETLIST_T');
+  try_drop('EXPENSELIST_T');
+  try_drop('REVENUELIST_T');
+  try_drop('LEADERSHIPLIST_T');
 
--- Drop Heading_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE Heading_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type Heading_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type Heading_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop Heading_T: ' || SQLERRM);
-        END IF;
-END;
-/
+  -- subtypes
+  try_drop('EXPENSE_T');
+  try_drop('REVENUE_T');
 
--- Drop Municipality_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE Municipality_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type Municipality_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type Municipality_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop Municipality_T: ' || SQLERRM);
-        END IF;
-END;
-/
-
--- Drop GeoEntity_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE GeoEntity_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type GeoEntity_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type GeoEntity_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop GeoEntity_T: ' || SQLERRM);
-        END IF;
-END;
-/
-
--- Drop Party_T if exists
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TYPE Party_T';
-    DBMS_OUTPUT.PUT_LINE('Dropped type Party_T.');
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE = -4043 THEN
-            DBMS_OUTPUT.PUT_LINE('Type Party_T does not exist (skipped).');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Failed to drop Party_T: ' || SQLERRM);
-        END IF;
+  -- structural object types
+  try_drop('MUNICIPALITY_T');
+  try_drop('GEOENTITY_T');
+  try_drop('LEADERSHIP_T');
+  try_drop('BUDGETENTRY_T');
+  try_drop('ANNUALRECORD_T');
+  try_drop('HEADING_T');
+  try_drop('PARTY_T');
+  try_drop('PERIOD_T');
 END;
 /
