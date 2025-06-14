@@ -30,22 +30,15 @@ CREATE TYPE Heading_T AS OBJECT (
 
 -- Budget entry (expenses & revenues)
 CREATE TYPE BudgetEntry_T AS OBJECT (
+  entryType CHAR(1), -- 'D' (expense) or 'R' (revenue)
   period   Period_T,
   amount   NUMBER(14,2),
   heading  REF Heading_T
 ) NOT FINAL;
 /
 
-CREATE TYPE Expense_T UNDER BudgetEntry_T;
-/
-CREATE TYPE Revenue_T UNDER BudgetEntry_T;
-
 CREATE TYPE BudgetList_T   AS TABLE OF BudgetEntry_T;
 /  
-CREATE TYPE ExpenseList_T  AS TABLE OF Expense_T;
-/
-CREATE TYPE RevenueList_T  AS TABLE OF Revenue_T;
-/
 
 -- Leaderships
 CREATE TYPE Leadership_T AS OBJECT (
@@ -67,12 +60,20 @@ CREATE TYPE GeoEntity_T AS OBJECT (
 ) NOT FINAL;
 /
 
--- Municipality subtype
-CREATE TYPE Municipality_T UNDER GeoEntity_T (
+CREATE TYPE Municipality_T AS OBJECT (
+  code         VARCHAR2(10),
+  name         VARCHAR2(100),
+  area         NUMBER,
+  population   NUMBER,
+  geoLevel     VARCHAR2(20),
+  parent       REF GeoEntity_T,
+
+  -- Additional fields specific to municipalities
   budgets      BudgetList_T,
   leaderships  LeadershipList_T,
 
+  -- Methods
   MEMBER FUNCTION total_expenses (p Period_T) RETURN NUMBER,
   MEMBER FUNCTION per_capita    (p Period_T) RETURN NUMBER
 );
-/ 
+/
