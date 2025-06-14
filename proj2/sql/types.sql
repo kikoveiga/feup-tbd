@@ -1,9 +1,59 @@
+CREATE TYPE Period_T AS OBJECT (
+  year    NUMBER(4),
+  quarter CHAR(1) -- '1', '2', '3', '4'
+);
+/
+
 -- Political parties
 CREATE TYPE Party_T AS OBJECT (
     acronym VARCHAR2(10),
     partyName VARCHAR2(100),
     spectrum VARCHAR2(50)
 ); 
+/
+
+-- Forward declaration
+CREATE TYPE Heading_T;
+CREATE TYPE Heading_RefList_T AS TABLE OF REF Heading_T;
+/
+
+CREATE TYPE Heading_T AS OBJECT (
+  id          VARCHAR2(15),
+  description VARCHAR2(120),
+  type        CHAR(1),        -- 'D' (expense) or 'R' (revenue)
+  hlevel      NUMBER(2),
+  parent      REF Heading_T,
+  children    Heading_RefList_T
+);
+/
+
+-- Budget entry (expenses & revenues)
+CREATE TYPE BudgetEntry_T AS OBJECT (
+  period   Period_T,
+  amount   NUMBER(14,2),
+  heading  REF Heading_T
+) NOT FINAL;
+/
+
+CREATE TYPE Expense_T UNDER BudgetEntry_T;
+/  
+CREATE TYPE Revenue_T UNDER BudgetEntry_T;
+/
+
+CREATE TYPE BudgetList_T   AS TABLE OF BudgetEntry_T;
+/  
+CREATE TYPE ExpenseList_T  AS TABLE OF Expense_T;
+/
+CREATE TYPE RevenueList_T  AS TABLE OF Revenue_T;
+/
+
+-- Leaderships
+CREATE TYPE Leadership_T AS OBJECT (
+  period  Period_T,
+  party   REF Party_T
+);
+/
+CREATE TYPE LeadershipList_T AS TABLE OF Leadership_T;
 /
 
 -- Abstract geographic entity
@@ -17,38 +67,12 @@ CREATE TYPE GeoEntity_T AS OBJECT (
 ) NOT FINAL;
 /
 
--- Heading for expense/revenue classification
-CREATE TYPE Heading_T AS OBJECT (
-    id          VARCHAR2(10),
-    description VARCHAR2(100),
-    type        CHAR(1), -- 'D' for expense, 'R' for revenue
-    hlevel      NUMBER,
-    parent      REF Heading_T
-);
-/
-
--- Base record for revenue/expense
-CREATE TYPE AnnualRecord_T AS OBJECT (
-    year     NUMBER,
-    heading  REF Heading_T,
-    amount   NUMBER
-) NOT FINAL;
-/
-
--- Subtypes for expenses and revenues
-CREATE TYPE AExpense_T UNDER AnnualRecord_T ();
-/
-CREATE TYPE ARevenue_T UNDER AnnualRecord_T ();
-/
-
--- Nested collections to hold revenues/expenses
-CREATE TYPE ExpenseList_T AS TABLE OF AExpense_T;
-/
-CREATE TYPE RevenueList_T AS TABLE OF ARevenue_T;
-/
-
+-- Municipality subtype
 CREATE TYPE Municipality_T UNDER GeoEntity_T (
-    ruling_party  REF Party_T,
-    expenses      ExpenseList_T,
-    revenues      RevenueList_T
+  budgets      BudgetList_T,
+  leaderships  LeadershipList_T,
+
+  MEMBER FUNCTION total_expenses (p Period_T) RETURN NUMBER,
+  MEMBER FUNCTION per_capita    (p Period_T) RETURN NUMBER
 );
+/ 
