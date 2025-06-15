@@ -67,13 +67,44 @@ CREATE TYPE Municipality_T AS OBJECT (
   population   NUMBER,
   geoLevel     VARCHAR2(20),
   parent       REF GeoEntity_T,
-
-  -- Additional fields specific to municipalities
   budgets      BudgetList_T,
   leaderships  LeadershipList_T,
 
-  -- Methods
-  MEMBER FUNCTION total_expenses (p Period_T) RETURN NUMBER,
-  MEMBER FUNCTION per_capita    (p Period_T) RETURN NUMBER
+ MEMBER FUNCTION total_expenses (
+    p_period   Period_T,
+    p_heading  REF Heading_T DEFAULT NULL
+  ) RETURN NUMBER,
+
+  MEMBER FUNCTION expenses_per_1000_inhabitants (
+    p_period   Period_T,
+    p_heading  REF Heading_T DEFAULT NULL
+  ) RETURN NUMBER,
+
+  MEMBER FUNCTION total_investment_per_km2 (
+    p_period   Period_T
+  ) RETURN NUMBER,
+
+  -- Mais Métodos
+  MEMBER FUNCTION has_heading (
+    p_heading REF Heading_T
+  ) RETURN BOOLEAN,
+
+  MEMBER FUNCTION get_governing_party (
+    p_period Period_T
+  ) RETURN REF Party_T,
+
+  MEMBER FUNCTION total_revenues (
+    p_period   Period_T,
+    p_heading  REF Heading_T DEFAULT NULL
+  ) RETURN NUMBER,
+
+  MEMBER FUNCTION net_balance (
+    p_period Period_T
+  ) RETURN NUMBER,
+
+  MEMBER FUNCTION is_governed_by (
+    party REF Party_T,
+    p_period Period_T
+  ) RETURN BOOLEAN
 );
 /
