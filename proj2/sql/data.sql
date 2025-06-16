@@ -127,3 +127,119 @@ BEGIN
   COMMIT;
 END;
 /
+
+-- Top-level EXPENSES
+INSERT INTO Headings VALUES (
+  Heading_T('D1', 'Despesas Correntes', 'D', 1, NULL, Heading_RefList_T())
+);
+
+INSERT INTO Headings VALUES (
+  Heading_T('D2', 'Despesas de Capital', 'D', 1, NULL, Heading_RefList_T())
+);
+
+-- Top-level REVENUES
+INSERT INTO Headings VALUES (
+  Heading_T('R1', 'Receitas Correntes', 'R', 1, NULL, Heading_RefList_T())
+);
+
+INSERT INTO Headings VALUES (
+  Heading_T('R2', 'Receitas de Capital', 'R', 1, NULL, Heading_RefList_T())
+);
+
+DECLARE
+  parent REF Heading_T;
+BEGIN
+  -- Children of D1
+  SELECT REF(h) INTO parent FROM Headings h WHERE h.id = 'D1';
+  INSERT INTO Headings VALUES (Heading_T('D1.1', 'Pessoal', 'D', 2, parent, Heading_RefList_T()));
+  INSERT INTO Headings VALUES (Heading_T('D1.2', 'Aquisição de Bens e Serviços', 'D', 2, parent, Heading_RefList_T()));
+  INSERT INTO Headings VALUES (Heading_T('D1.3', 'Juros da Dívida', 'D', 2, parent, Heading_RefList_T()));
+
+  -- Children of D2
+  SELECT REF(h) INTO parent FROM Headings h WHERE h.id = 'D2';
+  INSERT INTO Headings VALUES (Heading_T('D2.1', 'Investimentos', 'D', 2, parent, Heading_RefList_T()));
+  INSERT INTO Headings VALUES (Heading_T('D2.2', 'Aquisição de Terrenos e Edifícios', 'D', 2, parent, Heading_RefList_T()));
+
+  -- Children of R1
+  SELECT REF(h) INTO parent FROM Headings h WHERE h.id = 'R1';
+  INSERT INTO Headings VALUES (Heading_T('R1.1', 'Impostos Diretos', 'R', 2, parent, Heading_RefList_T()));
+  INSERT INTO Headings VALUES (Heading_T('R1.2', 'Transferências do Estado', 'R', 2, parent, Heading_RefList_T()));
+
+  -- Children of R2
+  SELECT REF(h) INTO parent FROM Headings h WHERE h.id = 'R2';
+  INSERT INTO Headings VALUES (Heading_T('R2.1', 'Venda de Bens de Investimento', 'R', 2, parent, Heading_RefList_T()));
+  INSERT INTO Headings VALUES (Heading_T('R2.2', 'Transferências de Capital', 'R', 2, parent, Heading_RefList_T()));
+END;
+/
+
+DECLARE
+  TYPE MunRec IS RECORD (
+    code         VARCHAR2(10),
+    name         VARCHAR2(100),
+    area         NUMBER,
+    pop          NUMBER,
+    parent_code  VARCHAR2(10),
+    party_acr    VARCHAR2(10),
+    budget_amt   NUMBER
+  );
+  TYPE MunArr IS TABLE OF MunRec;
+
+  municipalities MunArr := MunArr(
+    MunRec('LIS', 'Lisboa',   100.05, 545923,  'PT1B0', 'PS',     250000),
+    MunRec('PRT', 'Porto',     41.42, 232125,  'PT11A', 'PPD/PSD',180000),
+    MunRec('BRG', 'Braga',    183.4,  193333,  'PT112', 'PS',     120000),
+    MunRec('AVR', 'Aveiro',   197.58, 80555,   'PT191', 'IL',      95000),
+    MunRec('CBR', 'Coimbra',  319.4,  143396,  'PT192', 'PCP',    105000),
+    MunRec('LEI', 'Leiria',   565.1,  128640,  'PT193', 'BE',      88000)
+  );
+
+  parent_ref REF GeoEntity_T;
+  party_ref  REF Party_T;
+  heading_ref REF Heading_T;
+
+  budgets BudgetList_T;
+  leads LeadershipList_T;
+BEGIN
+  -- Get heading once (e.g., D1.1 = Pessoal)
+  SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'D1.1';
+
+  FOR i IN municipalities.FIRST .. municipalities.LAST LOOP
+    -- Get parent NUTS III
+    SELECT REF(e) INTO parent_ref FROM GeoEntities e WHERE e.code = municipalities(i).parent_code;
+
+    -- Get party ref
+    SELECT REF(p) INTO party_ref FROM Parties p WHERE p.acronym = municipalities(i).party_acr;
+
+    -- Create nested budgets
+    budgets := BudgetList_T();
+    budgets.EXTEND;
+    budgets(1) := BudgetEntry_T(
+      'D',
+      Period_T(2023, '1'),
+      municipalities(i).budget_amt,
+      heading_ref
+    );
+
+    -- Create nested leaderships
+    leads := LeadershipList_T();
+    leads.EXTEND;
+    leads(1) := Leadership_T(Period_T(2023, NULL), party_ref);
+
+    -- Insert municipality
+    INSERT INTO Municipalities VALUES (
+      Municipality_T(
+        municipalities(i).code,
+        municipalities(i).name,
+        municipalities(i).area,
+        municipalities(i).pop,
+        'municipality',
+        parent_ref,
+        budgets,
+        leads
+      )
+    );
+  END LOOP;
+
+  COMMIT;
+END;
+/
