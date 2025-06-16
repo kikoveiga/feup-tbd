@@ -242,4 +242,86 @@ BEGIN
 
   COMMIT;
 END;
+
+--Acrescentei a partir daqui
+BEGIN
+  FOR yr IN 2020 .. 2024 LOOP
+    BEGIN
+      INSERT INTO Periods VALUES (Period_T(yr,'ANUAL'));
+    EXCEPTION
+      WHEN DUP_VAL_ON_INDEX THEN NULL; -- já existe
+    END;
+  END LOOP;
+  COMMIT;
+END;
+/
+
+/*--------------------------------------------------------------------
+Acrescentar budgets e leaderships para 2020-2024
+   • Heading D1.1  -> salários
+   • Heading D2.1  -> investimento
+--------------------------------------------------------------------*/
+DECLARE
+  h_sal   REF Heading_T;
+  h_inv   REF Heading_T;
+  party_r REF Party_T;
+
+  /* factores simples para diversificar valores por ano */
+  TYPE YearRec IS RECORD (yr NUMBER, prop_sal NUMBER, prop_inv NUMBER);
+  TYPE YearTab IS TABLE  OF YearRec;
+  years YearTab := YearTab(
+    YearRec(2020, 0.38, 0.32),
+    YearRec(2021, 0.40, 0.30),
+    YearRec(2022, 0.43, 0.29),
+    YearRec(2023, 0.45, 0.28),  -- 2023 já existe, será apenas enriquecido
+    YearRec(2024, 0.48, 0.26)
+  );
+
+  buds  BudgetList_T;
+  leads LeadershipList_T;
+BEGIN
+  SELECT REF(h) INTO h_sal FROM Headings h WHERE h.id = 'D1.1';
+  SELECT REF(h) INTO h_inv FROM Headings h WHERE h.id = 'D2.1';
+
+  FOR i IN municipalities.FIRST .. municipalities.LAST LOOP
+
+    FOR j IN years.FIRST .. years.LAST LOOP
+
+      UPDATE Municipalities m
+         SET budgets =
+             budgets MULTISET UNION BudgetList_T(
+               BudgetEntry_T(
+                 'D',
+                 Period_T(years(j).yr,'ANUAL'),
+                 municipalities(i).budget_amt * years(j).prop_sal,
+                 h_sal
+               ),
+               BudgetEntry_T(
+                 'D',
+                 Period_T(years(j).yr,'ANUAL'),
+                 municipalities(i).budget_amt * years(j).prop_inv,
+                 h_inv
+               )
+             )
+       WHERE m.code = municipalities(i).code;
+
+      SELECT REF(p) INTO party_r
+        FROM Parties p
+       WHERE p.acronym = municipalities(i).party_acr;
+
+      UPDATE Municipalities m
+         SET leaderships =
+             leaderships MULTISET UNION LeadershipList_T(
+               Leadership_T(
+                 Period_T(years(j).yr,'ANUAL'),
+                 party_r
+               )
+             )
+       WHERE m.code = municipalities(i).code;
+
+    END LOOP; 
+  END LOOP;
+
+  COMMIT;
+END;
 /
