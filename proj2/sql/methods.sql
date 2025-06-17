@@ -1,4 +1,3 @@
--- TYPE BODY: Municipality_T implementation
 CREATE OR REPLACE TYPE BODY Municipality_T AS
 
   MEMBER FUNCTION total_expenses (
@@ -7,13 +6,12 @@ CREATE OR REPLACE TYPE BODY Municipality_T AS
   ) RETURN NUMBER IS
     total NUMBER := 0;
   BEGIN
-    FOR i IN 1 .. SELF.budgets.COUNT LOOP
-      IF SELF.budgets(i).entryType = 'D' AND 
-         SELF.budgets(i).period.year = p_period.year AND
-         (p_heading IS NULL OR SELF.budgets(i).heading = p_heading) THEN
-        total := total + SELF.budgets(i).amount;
-      END IF;
-    END LOOP;
+    SELECT NVL(SUM(b.amount), 0)
+    INTO total
+    FROM TABLE(SELF.budgets) b
+    WHERE b.entryType = 'D' AND 
+          b.period.year = p_period.year AND
+          (p_heading IS NULL OR b.heading = p_heading);
     RETURN total;
   END;
 
@@ -36,13 +34,15 @@ CREATE OR REPLACE TYPE BODY Municipality_T AS
   ) RETURN NUMBER IS
     total NUMBER := 0;
   BEGIN
-    FOR i IN 1 .. SELF.budgets.COUNT LOOP
-      IF SELF.budgets(i).entryType = 'D' AND 
-         SELF.budgets(i).period.year = p_period.year AND
-         SELF.budgets(i).heading.id LIKE 'INV%' THEN
-        total := total + SELF.budgets(i).amount;
-      END IF;
-    END LOOP;
+    SELECT NVL(SUM(b.amount), 0)
+    INTO total
+    FROM TABLE(SELF.budgets) b
+    WHERE b.entryType = 'D' AND 
+          b.period.year = p_period.year AND
+          EXISTS (
+            SELECT 1 FROM Headings h
+            WHERE h.id LIKE 'INV%' AND b.heading = REF(h)
+          );
     IF SELF.area > 0 THEN
       RETURN total / SELF.area;
     ELSE
@@ -56,13 +56,12 @@ CREATE OR REPLACE TYPE BODY Municipality_T AS
   ) RETURN NUMBER IS
     total NUMBER := 0;
   BEGIN
-    FOR i IN 1 .. SELF.budgets.COUNT LOOP
-      IF SELF.budgets(i).entryType = 'R' AND 
-         SELF.budgets(i).period.year = p_period.year AND
-         (p_heading IS NULL OR SELF.budgets(i).heading = p_heading) THEN
-        total := total + SELF.budgets(i).amount;
-      END IF;
-    END LOOP;
+    SELECT NVL(SUM(b.amount), 0)
+    INTO total
+    FROM TABLE(SELF.budgets) b
+    WHERE b.entryType = 'R' AND 
+          b.period.year = p_period.year AND
+          (p_heading IS NULL OR b.heading = p_heading);
     RETURN total;
   END;
 

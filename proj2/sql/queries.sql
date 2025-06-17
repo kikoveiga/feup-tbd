@@ -1,35 +1,24 @@
 --Questão 4
 --a)
 SELECT
-    r.name                                    AS regiao_nuts1,
-    m.name                                    AS municipio,
-    p.year                                    AS ano,
-    h.description                             AS heading,
-    SUM(b.amount)                             AS total_despesa,
-    m.population                              AS habitantes
+    m.name              AS municipio,
+    b.period.year       AS ano,
+    h.description       AS heading,
+    SUM(b.amount)       AS total_despesa,
+    m.population        AS habitantes
 FROM
     Municipalities m
-      -- expandir a nested table budgets
-      , TABLE(m.budgets) b
-      , Headings h
-      , GeoEntities r
-      , Period_T p
+    JOIN TABLE(m.budgets) b ON 1 = 1
+    JOIN Headings h         ON b.heading = REF(h)
 WHERE
-      b.entryType      = 'D'              -- só despesas
-  AND b.heading        = REF(h)           -- liga à categoria
-  AND m.parent         = REF(r)           -- r = entidade geográfica ascendente
-  AND r.geoLevel       = 'NUTS I'         -- apenas nível de região
-  -- criar objecto-período “on-the-fly” para comparar (ano)
-  AND b.period.year    = p.year
+    b.entryType = 'D'
 GROUP BY
-    r.name,
     m.name,
-    p.year,
+    b.period.year,
     h.description,
     m.population
 ORDER BY
-    r.name,
-    m.population DESC;      -- municípios mais populosos primeiro
+    m.population DESC;
 
 --b)
 SELECT
@@ -101,18 +90,19 @@ WITH inv_party AS (
   SELECT
       l.period.year                                AS ano,
       p.acronym                                    AS partido,
-      SUM(  m.total_investment_per_km2(l.period) 
-         *  m.area )                               AS inv_total,   -- euros
-      SUM( m.area )                                AS area_total   -- km2
+      SUM(m.total_investment_per_km2(l.period) * m.area) AS inv_total,   -- euros
+      SUM(m.area)                                  AS area_total         -- km2
   FROM
-         Municipalities  m
-  JOIN   TABLE(m.leaderships) l
-         ON l.period.year = m.budgets(1).period.year  -- simplificação se usas ANUAL
-  JOIN   Parties p
-         ON l.party = REF(p)
+       Municipalities m
+  JOIN TABLE(m.leaderships) l
+       ON 1 = 1  -- required dummy ON for CROSS JOIN semantics
+  JOIN TABLE(m.budgets) b
+       ON b.period.year = l.period.year
+  JOIN Parties p
+       ON l.party = REF(p)
   GROUP BY
-         l.period.year,
-         p.acronym
+       l.period.year,
+       p.acronym
 )
 SELECT ano,
        partido,
@@ -120,8 +110,10 @@ SELECT ano,
 FROM (
   SELECT
       inv_party.*,
-      RANK() OVER (PARTITION BY ano
-                   ORDER BY inv_total / area_total DESC) AS rnk
+      RANK() OVER (
+        PARTITION BY ano
+        ORDER BY inv_total / area_total DESC
+      ) AS rnk
   FROM inv_party
 )
 WHERE rnk = 1
@@ -134,33 +126,36 @@ WITH sal_party AS (
       p.acronym                                        AS partido,
       AVG(
         m.expenses_per_1000_inhabitants(
-          Period_T(l.period.year, l.period.quarter),   -- ano (ou 'ANUAL')
-          -- referência ao heading de salários:
+          Period_T(l.period.year, l.period.quarter),
           (SELECT REF(h)
              FROM Headings h
             WHERE h.id LIKE 'SAL%')
         )
       ) AS sal_por_1000
   FROM
-         Municipalities m
-  JOIN   TABLE(m.leaderships) l
-           ON l.period.year = m.budgets(1).period.year   -- usa o mesmo ano
-  JOIN   Parties p
-           ON l.party = REF(p)
-  WHERE  l.period.quarter = 'ANUAL'                      -- se usas períodos anuais
+       Municipalities m
+  JOIN TABLE(m.leaderships) l
+       ON 1 = 1
+  JOIN TABLE(m.budgets) b
+       ON b.period.year = l.period.year
+  JOIN Parties p
+       ON l.party = REF(p)
+  WHERE l.period.quarter = 'ANUAL'
   GROUP BY
-         l.period.year,
-         p.acronym
+       l.period.year,
+       p.acronym
 )
 SELECT
     ano,
     partido,
-    ROUND(sal_por_1000, 2)  AS salarios_€/1000hab
+    ROUND(sal_por_1000, 2)  AS salarios_por_1000_habitantes
 FROM (
     SELECT
         sal_party.*,
-        RANK() OVER (PARTITION BY ano
-                     ORDER BY sal_por_1000 DESC) AS rnk
+        RANK() OVER (
+          PARTITION BY ano
+          ORDER BY sal_por_1000 DESC
+        ) AS rnk
     FROM sal_party
 )
 WHERE rnk = 1
@@ -172,23 +167,24 @@ ORDER BY ano;
 
 SELECT
     m.name                                                AS municipio,
-    /* 1) método: total de despesas no ano 2023            */
     m.total_expenses( Period_T(2023,'ANUAL') )            AS despesa_total,
-    /* 2) desreferenciação directa do partido no poder     */
     DEREF( m.get_governing_party(Period_T(2023,'ANUAL')) ).partyName
                                                           AS partido_2023,
-    /* 3) outro método: despesa por 1 000 hab.             */
     m.expenses_per_1000_inhabitants( Period_T(2023,'ANUAL') )
-                                                          AS despesa_€/1000hab,
-    /* método que devolve investimento/km²                 */
-    m.total_investment_per_km2( Period_T(2023,'ANUAL') )  AS inv_€/km2
+                                                          AS despesa_por_1000habitantes,
+    m.total_investment_per_km2( Period_T(2023,'ANUAL') )  AS inv_por_km2
 FROM
     Municipalities m
 WHERE
-    /* usa método booleano que percorre a nested table budgets       */
-    m.has_heading( (SELECT REF(h)
-                    FROM   Headings h
-                    WHERE  h.id LIKE 'INV%') )            -- apenas quem regista investimento
+    EXISTS (
+      SELECT 1
+      FROM TABLE(m.budgets) b
+      WHERE b.heading = (
+        SELECT REF(h)
+        FROM Headings h
+        WHERE h.id LIKE 'INV%'
+      )
+    )
 ORDER BY
-    inv_€/km2 DESC;
+    inv_por_km2 DESC;
 
