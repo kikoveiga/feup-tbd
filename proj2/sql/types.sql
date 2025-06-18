@@ -1,6 +1,6 @@
 CREATE TYPE Period_T AS OBJECT (
   year    NUMBER(4),
-  quarter CHAR(1) -- '1', '2', '3', '4'
+  quarter VARCHAR2(10) -- '1', '2', '3', '4', 'ANUAL'
 );
 /
 

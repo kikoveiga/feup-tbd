@@ -1,11 +1,11 @@
 --Questão 4
 --a)
 SELECT
-    m.name              AS municipio,
-    b.period.year       AS ano,
-    h.description       AS heading,
-    SUM(b.amount)       AS total_despesa,
-    m.population        AS habitantes
+    SUBSTR(m.name, 1, 20)        AS municipio,
+    b.period.year                AS ano,
+    SUBSTR(h.description, 1, 35) AS titulo,
+    SUM(b.amount)                AS despesa,
+    m.population                 AS habitantes
 FROM
     Municipalities m
     JOIN TABLE(m.budgets) b ON 1 = 1
@@ -60,30 +60,37 @@ ORDER BY
     heading_pai;
 
 --c)
-SELECT
-    p.acronym                                       AS partido,
-    h.description                                   AS heading,
-    ROUND(
-      AVG( m.expenses_per_1000_inhabitants(
-              Period_T(2023,'ANUAL'),               -- período analisado
-              REF(h)                                -- filtra heading
+SELECT *
+FROM (
+  SELECT
+      p.acronym                           AS partido,
+      SUBSTR(h.description, 1, 35)        AS titulo,
+      ROUND(
+        AVG(
+          m.expenses_per_1000_inhabitants(
+            l.period,
+            REF(h)
           )
-      ), 2)                                         AS despesa_media_€/1000hab
-FROM
-         Municipalities   m
-CROSS JOIN Headings       h                         -- percorre todos os headings
-JOIN     TABLE(m.leaderships) l                     -- expande liderança
-           ON l.period.year = 2023                  -- mesmo ano
-JOIN     Parties          p
-           ON l.party = REF(p)                      -- partido no poder
-WHERE
-      h.type = 'D'                                  -- apenas despesas
-GROUP BY
+        ), 2
+      ) AS despesa_media_por_1000_habitantes
+  FROM
+      Municipalities m
+  CROSS JOIN
+      Headings h
+  JOIN
+      TABLE(m.leaderships) l
+      ON l.party IS NOT NULL
+  JOIN
+      Parties p
+      ON l.party = REF(p)
+  WHERE
+      h.type = 'D'
+  GROUP BY
       p.acronym,
       h.description
-ORDER BY
-      p.acronym,
-      h.description;
+)
+WHERE despesa_media_por_1000_habitantes > 0
+ORDER BY despesa_media_por_1000_habitantes DESC;
 
 --d)
 WITH inv_party AS (
@@ -126,21 +133,18 @@ WITH sal_party AS (
       p.acronym                                        AS partido,
       AVG(
         m.expenses_per_1000_inhabitants(
-          Period_T(l.period.year, l.period.quarter),
+          l.period,
           (SELECT REF(h)
              FROM Headings h
-            WHERE h.id LIKE 'SAL%')
+            WHERE h.id = 'D1.1')
         )
       ) AS sal_por_1000
   FROM
        Municipalities m
   JOIN TABLE(m.leaderships) l
        ON 1 = 1
-  JOIN TABLE(m.budgets) b
-       ON b.period.year = l.period.year
   JOIN Parties p
        ON l.party = REF(p)
-  WHERE l.period.quarter = 'ANUAL'
   GROUP BY
        l.period.year,
        p.acronym
@@ -148,26 +152,26 @@ WITH sal_party AS (
 SELECT
     ano,
     partido,
-    ROUND(sal_por_1000, 2)  AS salarios_por_1000_habitantes
+    ROUND(sal_por_1000, 2) AS salarios_por_1000_habitantes
 FROM (
-    SELECT
-        sal_party.*,
-        RANK() OVER (
-          PARTITION BY ano
-          ORDER BY sal_por_1000 DESC
-        ) AS rnk
-    FROM sal_party
+  SELECT
+      s.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY s.ano
+        ORDER BY s.sal_por_1000 DESC
+      ) AS rn
+  FROM sal_party s
+  WHERE s.sal_por_1000 > 0
 )
-WHERE rnk = 1
+WHERE rn = 1
 ORDER BY ano;
 
 --f) A query devolve, para cada município com despesas de investimento registadas em 2023, os seguintes dados: o nome do município;
--- o total de despesas no ano de 2023; o nome do partido que governa esse município nesse ano; a despesa total por 1 000 habitantes;
+-- o nome do partido que governa esse município nesse ano; a despesa total por 1 000 habitantes;
 -- o investimento por quilómetro quadrado.
 
 SELECT
-    m.name                                                AS municipio,
-    m.total_expenses( Period_T(2023,'ANUAL') )            AS despesa_total,
+    SUBSTR(m.name, 1, 15)                                 AS municipio,
     DEREF( m.get_governing_party(Period_T(2023,'ANUAL')) ).partyName
                                                           AS partido_2023,
     m.expenses_per_1000_inhabitants( Period_T(2023,'ANUAL') )
@@ -179,12 +183,8 @@ WHERE
     EXISTS (
       SELECT 1
       FROM TABLE(m.budgets) b
-      WHERE b.heading = (
-        SELECT REF(h)
-        FROM Headings h
-        WHERE h.id LIKE 'INV%'
-      )
+      JOIN Headings h ON b.heading = REF(h)
+      WHERE LOWER(h.description) LIKE '%inv%'
     )
 ORDER BY
     inv_por_km2 DESC;
-

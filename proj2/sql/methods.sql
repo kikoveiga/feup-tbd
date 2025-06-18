@@ -41,7 +41,7 @@ CREATE OR REPLACE TYPE BODY Municipality_T AS
           b.period.year = p_period.year AND
           EXISTS (
             SELECT 1 FROM Headings h
-            WHERE h.id LIKE 'INV%' AND b.heading = REF(h)
+            WHERE h.id LIKE 'D2%' AND b.heading = REF(h)
           );
     IF SELF.area > 0 THEN
       RETURN total / SELF.area;
