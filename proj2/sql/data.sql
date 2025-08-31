@@ -208,7 +208,7 @@ BEGIN
 
     -- Create budgets
     budgets := BudgetList_T();
-    budgets.EXTEND(8);
+    budgets.EXTEND(12);
     
     SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'D1.1';
     budgets(1) := BudgetEntry_T('D', Period_T(2022, 'ANUAL'), 80000, heading_ref);
@@ -233,6 +233,18 @@ BEGIN
 
     SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'D2.2';
     budgets(8) := BudgetEntry_T('D', Period_T(2024, 'ANUAL'), 75000, heading_ref);
+
+    SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'D1';
+    budgets(9) := BudgetEntry_T('D', Period_T(2022, 'ANUAL'), 100000, heading_ref);
+
+    SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'D2';
+    budgets(10) := BudgetEntry_T('D', Period_T(2023, 'ANUAL'), 120000, heading_ref);
+
+    SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'R1';
+    budgets(11) := BudgetEntry_T('R', Period_T(2023, 'ANUAL'), 98000, heading_ref);
+
+    SELECT REF(h) INTO heading_ref FROM Headings h WHERE h.id = 'R2';
+    budgets(12) := BudgetEntry_T('R', Period_T(2024, 'ANUAL'), 112000, heading_ref);
 
     -- Leaderships
     leads := LeadershipList_T();
